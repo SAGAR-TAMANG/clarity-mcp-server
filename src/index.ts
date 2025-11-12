@@ -1,8 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import express from 'express';
 
 import pkg from "../package.json" with { type: "json" };
 
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   ANALYTICS_DASHBOARD_DESCRIPTION,
   ANALYTICS_DASHBOARD_TOOL,
@@ -99,22 +100,56 @@ server.tool(
 );
 
 // Main function
-async function main() {
-  // Log configuration status
+// async function main() {
+//   // Log configuration status
+//   if (CLARITY_API_TOKEN) {
+//     console.error("Clarity API token configured via environment/command-line");
+//   } else {
+//     console.error("No Clarity API token configured, it must be provided with each request");
+//   }
+
+//   const transport = new StdioServerTransport();
+//   await server.connect(transport);
+
+//   console.error("Microsoft Clarity Data Export MCP Server running on stdio...");
+// }
+
+const app = express();
+app.use(express.json());
+
+app.post('/mcp', async (req, res) => {
+  // Create a new transport for each request to prevent request ID collisions
   if (CLARITY_API_TOKEN) {
     console.error("Clarity API token configured via environment/command-line");
   } else {
     console.error("No Clarity API token configured, it must be provided with each request");
   }
 
-  const transport = new StdioServerTransport();
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true
+  });
+
+  res.on('close', () => {
+    transport.close();
+  });
+
   await server.connect(transport);
+  await transport.handleRequest(req, res, req.body);
+});
 
-  console.error("Microsoft Clarity Data Export MCP Server running on stdio...");
-}
-
-// Run the server
-main().catch((error) => {
-  console.error("Fatal error in main():", error);
+const port = parseInt(process.env.PORT || '3000');
+app.listen(port, () => {
+  console.log(`Demo MCP Server running on http://localhost:${port}/mcp`);
+}).on('error', error => {
+  console.error('Server error:', error);
   process.exit(1);
 });
+
+
+
+// // Run the server
+// main().catch((error) => {
+//   console.error("Fatal error in main():", error);
+//   process.exit(1);
+// });

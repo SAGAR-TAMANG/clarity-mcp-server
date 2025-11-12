@@ -1,4 +1,8 @@
+import dotenv from 'dotenv';
 import { CLARITY_API_TOKEN } from "./constants.js";
+
+// Load environment variables from .env file
+dotenv.config();
 
 // Get configuration from environment variables or command-line arguments
 export const getConfigValue = (name: string, fallback?: string): string | undefined => {
